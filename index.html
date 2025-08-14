@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Modèle 3D</title>
+  <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      background: transparent;
+    }
+    model-viewer {
+      width: 100vw;
+      height: 100vh;
+      background-color: transparent !important;
+    }
+  </style>
+</head>
+<body>
+  <model-viewer src="alien_egg.glb"
+                ar
+                ar-modes="webxr scene-viewer quick-look"
+                camera-controls
+                tone-mapping="neutral"
+                shadow-intensity="1"
+                auto-rotate>
+  </model-viewer>
+
+  <script>
+  (function(){
+    const PRESS_MIN_MS = 150; // seuil pour considérer "press/hold"
+    const mv = document.querySelector('model-viewer');
+    let pressStart = 0;
+
+    function sendToParent(payload) {
+      // tu peux remplacer '*' par l'origine exacte pour sécurité
+      window.parent.postMessage(payload, '*');
+    }
+
+    if (!mv) {
+      console.warn('[egg-iframe] model-viewer not found');
+      return;
+    }
+
+    mv.addEventListener('pointerdown', () => {
+      pressStart = Date.now();
+    });
+
+    mv.addEventListener('pointerup', () => {
+      const dt = Date.now() - pressStart;
+      pressStart = 0;
+      if (dt >= PRESS_MIN_MS) {
+        // user did a press/hold -> notify parent
+        sendToParent({ type: 'eggPress', ts: Date.now() });
+      }
+    });
+
+    mv.addEventListener('pointercancel', () => { pressStart = 0; });
+
+    // permet au parent de demander à l'iframe de jouer une track en fallback
+    const iframeAudio = new Audio();
+    window.addEventListener('message', (ev) => {
+      const d = ev.data || {};
+      if (d?.type === 'fallbackPlay' && d?.url) {
+        iframeAudio.src = d.url;
+        iframeAudio.play().catch(()=>console.warn('[egg-iframe] fallback play blocked'));
+      }
+    });
+  })();
+  </script>
+</body>
+</html>
